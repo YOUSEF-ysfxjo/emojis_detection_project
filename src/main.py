@@ -2,6 +2,17 @@ import cv2
 from deepface import DeepFace
 
 
+EMOJI_MAP = {
+    'happy' : ':)',
+    'sad' : ':(',
+    'angry' : '>:(',
+    'surprise' : ':O',
+    'fear' : 'D:',
+    'disgust' : ':X',
+    "neutral" : '._.'
+}
+
+
 def process_frame(frame):
 
     #check if frame is empty
@@ -11,6 +22,7 @@ def process_frame(frame):
 
     resolution = (640, 480)
     frame = cv2.resize(frame, resolution)
+    #BGR to RGB
 
     metadata = {
 
@@ -45,6 +57,7 @@ def analysis(frame):
             result = [result]
         for face_result in result:
             emotion = face_result['dominant_emotion']
+            emoji = EMOJI_MAP.get(emotion, "??")
             emotion_scores = face_result['emotion']
             
             # Extract face region coordinates
@@ -56,7 +69,7 @@ def analysis(frame):
                 cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
             
             # Put emotion text on frame
-                text = f"{emotion}: {emotion_scores[emotion]:.2f}"
+                text = f"{emotion} {emoji}"
                 cv2.putText(
                     frame,
                     text,
@@ -70,7 +83,8 @@ def analysis(frame):
                 emotions_data.append({
                     'dominant_emotion': emotion,
                     'emotion_scores': emotion_scores,
-                    'face_region': {'x': x, 'y': y, 'w': w, 'h': h}
+                    'face_region': {'x': x, 'y': y, 'w': w, 'h': h},
+                    'emoji' : emoji
                 })
             else:
                 continue
@@ -85,3 +99,31 @@ def analysis(frame):
     except Exception as e:
         return frame, {"error": str(e)}
 
+
+
+if __name__ == "__main__":
+    cap = cv2.VideoCapture(0)
+    
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            print("Failed to grab frame")
+            break
+        
+        frame, meta1 = process_frame(frame)
+        annotated_frame, meta2 = analysis(frame)
+
+        
+        cv2.imshow('Emotion Detection', annotated_frame)
+        
+        if 'faces_detected' in meta2:
+            print(f"Faces detected: {meta2['faces_detected']}")
+        
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+    
+    cap.release()
+    cv2.destroyAllWindows()
