@@ -1,9 +1,11 @@
 import cv2
+import numpy as np
+import requests
 from deepface import DeepFace
 
 
 EMOJI_MAP = {
-    # Raw URLs to images stored in the repository (raw.githubusercontent.com)
+
     'happy': 'https://raw.githubusercontent.com/YOUSEF-ysfxjo/emojis_detection_project/main/images/happy.png',
     'sad': 'https://raw.githubusercontent.com/YOUSEF-ysfxjo/emojis_detection_project/main/images/sad.png',
     'angry': 'https://raw.githubusercontent.com/YOUSEF-ysfxjo/emojis_detection_project/main/images/angry.png',
@@ -12,6 +14,76 @@ EMOJI_MAP = {
     'disgust': 'https://raw.githubusercontent.com/YOUSEF-ysfxjo/emojis_detection_project/main/images/disgusted.png',
     'neutral': 'https://raw.githubusercontent.com/YOUSEF-ysfxjo/emojis_detection_project/main/images/neutral.png'
 }
+
+
+def _load_emoji_images(map_dict):
+    imgs = {}
+    for k, path in map_dict.items():
+        try:
+            if isinstance(path, str) and path.startswith("http"):
+                r = requests.get(path, timeout=5)
+                arr = np.frombuffer(r.content, np.uint8)
+                img = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED)
+            else:
+                img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
+
+            if img is None:
+                imgs[k] = None
+                continue
+
+            # Normalize to BGRA
+            if img.ndim == 2:
+                img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGRA)
+            elif img.shape[2] == 3:
+                b, g, r = cv2.split(img)
+                a = np.ones(b.shape, dtype=b.dtype) * 255
+                img = cv2.merge((b, g, r, a))
+
+            imgs[k] = img
+        except Exception:
+            imgs[k] = None
+    return imgs
+
+
+# load once
+EMOJI_IMAGES = _load_emoji_images(EMOJI_MAP)
+
+
+def _overlay_emoji(bg, fg, x, y, w, h):
+    if fg is None:
+        return bg
+
+    try:
+        fg_resized = cv2.resize(fg, (w, h), interpolation=cv2.INTER_AREA)
+    except Exception:
+        return bg
+
+    H, W = bg.shape[:2]
+    x1 = max(0, x)
+    y1 = max(0, y)
+    x2 = min(W, x + w)
+    y2 = min(H, y + h)
+
+    if x1 >= x2 or y1 >= y2:
+        return bg
+
+    fx1 = x1 - x
+    fy1 = y1 - y
+    fx2 = fx1 + (x2 - x1)
+    fy2 = fy1 + (y2 - y1)
+
+    fg_region = fg_resized[fy1:fy2, fx1:fx2]
+    bg_region = bg[y1:y2, x1:x2]
+
+    if fg_region.shape[2] == 4:
+        alpha = fg_region[:, :, 3] / 255.0
+        for c in range(3):
+            bg_region[:, :, c] = (alpha * fg_region[:, :, c] + (1 - alpha) * bg_region[:, :, c]).astype(bg_region.dtype)
+    else:
+        bg_region[:, :, :] = fg_region[:, :, :3]
+
+    bg[y1:y2, x1:x2] = bg_region
+    return bg
 
 
 def process_frame(frame):
@@ -58,34 +130,34 @@ def analysis(frame):
             result = [result]
         for face_result in result:
             emotion = face_result['dominant_emotion']
-            emoji = EMOJI_MAP.get(emotion, "??")
+            emoji_url = EMOJI_MAP.get(emotion)
+            emoji_img = EMOJI_IMAGES.get(emotion)
             emotion_scores = face_result['emotion']
-            
+
             # Extract face region coordinates
             region = face_result['region']
             x, y, w, h = region['x'], region['y'], region['w'], region['h']
 
             if (h > 0) and (w > 0):
-                     # Draw rectangle around face
+                # Draw rectangle around face
                 cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            
-            # Put emotion text on frame
-                text = f"{emotion} {emoji}"
-                cv2.putText(
-                    frame,
-                    text,
-                    (x, y - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.9,
-                    (0, 255, 0),
-                    2
-                )
-            
+
+                # Overlay emoji image above or on the face
+                # Place emoji so its bottom aligns with the top of the detected face
+                emoji_w = w
+                emoji_h = h
+                emoji_x = x
+                emoji_y = y - int(emoji_h * 0.6)
+                if emoji_y < 0:
+                    emoji_y = y
+
+                frame = _overlay_emoji(frame, emoji_img, emoji_x, emoji_y, emoji_w, emoji_h)
+
                 emotions_data.append({
                     'dominant_emotion': emotion,
                     'emotion_scores': emotion_scores,
                     'face_region': {'x': x, 'y': y, 'w': w, 'h': h},
-                    'emoji' : emoji
+                    'emoji': emoji_url
                 })
             else:
                 continue
