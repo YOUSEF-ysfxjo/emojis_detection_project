@@ -5,7 +5,6 @@ from deepface import DeepFace
 
 
 EMOJI_MAP = {
-
     'happy': 'https://raw.githubusercontent.com/YOUSEF-ysfxjo/emojis_detection_project/main/images/happy.png',
     'sad': 'https://raw.githubusercontent.com/YOUSEF-ysfxjo/emojis_detection_project/main/images/sad.png',
     'angry': 'https://raw.githubusercontent.com/YOUSEF-ysfxjo/emojis_detection_project/main/images/angry.png',
@@ -54,25 +53,31 @@ def _overlay_emoji(bg, fg, x, y, w, h):
         return bg
 
     try:
+        # ensure positive integer size
+        w = max(1, int(w))
+        h = max(1, int(h))
         fg_resized = cv2.resize(fg, (w, h), interpolation=cv2.INTER_AREA)
     except Exception:
         return bg
 
     H, W = bg.shape[:2]
-    x1 = max(0, x)
-    y1 = max(0, y)
-    x2 = min(W, x + w)
-    y2 = min(H, y + h)
+    x1 = max(0, int(x))
+    y1 = max(0, int(y))
+    x2 = min(W, x1 + w)
+    y2 = min(H, y1 + h)
 
     if x1 >= x2 or y1 >= y2:
         return bg
 
-    fx1 = x1 - x
-    fy1 = y1 - y
+    fx1 = x1 - int(x)
+    fy1 = y1 - int(y)
     fx2 = fx1 + (x2 - x1)
     fy2 = fy1 + (y2 - y1)
 
     fg_region = fg_resized[fy1:fy2, fx1:fx2]
+    if fg_region.size == 0:
+        return bg
+
     bg_region = bg[y1:y2, x1:x2]
 
     if fg_region.shape[2] == 4:
@@ -135,8 +140,8 @@ def analysis(frame):
             emotion_scores = face_result['emotion']
 
             # Extract face region coordinates
-            region = face_result['region']
-            x, y, w, h = region['x'], region['y'], region['w'], region['h']
+            region = face_result.get('region', {})
+            x, y, w, h = int(region.get('x', 0)), int(region.get('y', 0)), int(region.get('w', 0)), int(region.get('h', 0))
 
             if (h > 0) and (w > 0):
                 # Draw rectangle around face
