@@ -3,13 +3,14 @@ from deepface import DeepFace
 
 
 EMOJI_MAP = {
-    'happy' : ':)',
-    'sad' : ':(',
-    'angry' : '>:(',
-    'surprise' : ':O',
-    'fear' : 'D:',
-    'disgust' : ':X',
-    "neutral" : '._.'
+    # Raw URLs to images stored in the repository (raw.githubusercontent.com)
+    'happy': 'https://raw.githubusercontent.com/YOUSEF-ysfxjo/emojis_detection_project/main/images/happy.png',
+    'sad': 'https://raw.githubusercontent.com/YOUSEF-ysfxjo/emojis_detection_project/main/images/sad.png',
+    'angry': 'https://raw.githubusercontent.com/YOUSEF-ysfxjo/emojis_detection_project/main/images/angry.png',
+    'surprise': 'https://raw.githubusercontent.com/YOUSEF-ysfxjo/emojis_detection_project/main/images/surprised.png',
+    'fear': 'https://raw.githubusercontent.com/YOUSEF-ysfxjo/emojis_detection_project/main/images/afraid.png',
+    'disgust': 'https://raw.githubusercontent.com/YOUSEF-ysfxjo/emojis_detection_project/main/images/disgusted.png',
+    'neutral': 'https://raw.githubusercontent.com/YOUSEF-ysfxjo/emojis_detection_project/main/images/neutral.png'
 }
 
 
